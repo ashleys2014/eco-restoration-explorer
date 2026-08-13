@@ -1,36 +1,65 @@
-# ==============================================================================
-# PHASE 3: Shiny App Skeleton (Enhanced UX Edition)
-# Project: Ecosystem Health Explorer
-# ==============================================================================
-
 library(shiny)
 library(tidyverse)
+library(DT)
 
-# 1. Load pre-processed data from Phase 2
+# Load data
 regional_summary <- readRDS("data/regional_summary.rds")
 daily_telemetry  <- readRDS("data/daily_telemetry.rds")
 
 # ==============================================================================
-# USER INTERFACE (UI)
+# UI
 # ==============================================================================
 
 ui <- fluidPage(
   
-  # App title
   titlePanel("Ecosystem Health Explorer 🌲"),
-  
-  # Subtitle
   p("Interactive tool for identifying ecological restoration priorities"),
+  hr(),
   
-  # Tab structure
   tabsetPanel(
     
-    # TAB 1: Regional Health Dashboard
+    # TAB 1: Regional Dashboard
     tabPanel(
       "Regional Dashboard",
-      h3("Overview of Regional Ecological Health"),
-      p("Scan the health status of all monitoring regions."),
-      tableOutput("regional_table")
+      br(),
+      
+      # KPI CARDS — updated to muted ecological palette
+      fluidRow(
+        column(4,
+               div(
+                 style = "background-color: #f8f9fa; border-left: 5px solid #8FAF9F; padding: 15px; border-radius: 4px; 
+                         box-shadow: 0 1px 3px rgba(0,0,0,0.1);",
+                 h5("Top Performing Region", style = "margin-top: 0; color: #555;"),
+                 h3(uiOutput("top_region_kpi"), style = "margin: 5px 0; font-weight: bold; color: #8FAF9F;")
+               )
+        ),
+        column(4,
+               div(
+                 style = "background-color: #f8f9fa; border-left: 5px solid #C97A63; padding: 15px; border-radius: 4px; 
+                         box-shadow: 0 1px 3px rgba(0,0,0,0.1);",
+                 h5("Lowest Health Score Region", style = "margin-top: 0; color: #555;"),
+                 h3(uiOutput("lowest_region_kpi"), style = "margin: 5px 0; font-weight: bold; color: #C97A63;")
+               )
+        ),
+        column(4,
+               div(
+                 style = "background-color: #f8f9fa; border-left: 5px solid #D9CBB4; padding: 15px; border-radius: 4px; 
+                         box-shadow: 0 1px 3px rgba(0,0,0,0.1);",
+                 h5("Average Dataset Health", style = "margin-top: 0; color: #555;"),
+                 h3(uiOutput("avg_health_kpi"), style = "margin: 5px 0; font-weight: bold; color: #D9CBB4;")
+               )
+        )
+      ),
+      
+      br(),
+      h4("Regional Health Overview"),
+      p("Relative performance tiers based on dataset health distribution."),
+      
+      # NEW: Legend
+      p("Color Key: Critical (<0.49) | Moderate (0.49–0.52) | Healthy (>0.52)",
+        style = "font-size: 12px; color: #666; margin-bottom: 10px;"),
+      
+      DT::dataTableOutput("regional_table")
     ),
     
     # TAB 2: Threshold Explorer
@@ -40,7 +69,6 @@ ui <- fluidPage(
       sidebarLayout(
         sidebarPanel(
           p("Set thresholds to identify regions meeting your criteria:"),
-          # Adjusted defaults to match real dataset ranges (~0.4 - 0.6)
           sliderInput("ndvi_threshold", "NDVI Index (Min):", min = 0, max = 1, value = 0.40, step = 0.05),
           sliderInput("biodiversity_threshold", "Biodiversity (Min):", min = 0, max = 1, value = 0.40, step = 0.05),
           sliderInput("degradation_threshold", "Land Degradation (Max):", min = 0, max = 1, value = 0.70, step = 0.05)
@@ -76,19 +104,56 @@ ui <- fluidPage(
 )
 
 # ==============================================================================
-# SERVER LOGIC
+# SERVER
 # ==============================================================================
 
 server <- function(input, output, session) {
   
-  # TAB 1: Display regional summary table
-  output$regional_table <- renderTable({
-    regional_summary %>%
-      select(Region_ID, Land_Use_Category, Mean_Health_Score, Mean_NDVI, Mean_Biodiversity) %>%
-      arrange(desc(Mean_Health_Score))
+  # KPI CARDS
+  output$top_region_kpi <- renderUI({
+    top_row <- regional_summary %>% arrange(desc(Mean_Health_Score)) %>% slice(1)
+    paste0(top_row$Region_ID, " (", top_row$Land_Use_Category, ")")
   })
   
-  # TAB 2: Reactive filtering with Empty State Handling (UX Improvement)
+  output$lowest_region_kpi <- renderUI({
+    bottom_row <- regional_summary %>% arrange(Mean_Health_Score) %>% slice(1)
+    paste0(bottom_row$Region_ID, " (", bottom_row$Land_Use_Category, ")")
+  })
+  
+  output$avg_health_kpi <- renderUI({
+    avg_score <- mean(regional_summary$Mean_Health_Score, na.rm = TRUE)
+    round(avg_score, 3)
+  })
+  
+  # TAB 1 TABLE — updated palette
+  output$regional_table <- DT::renderDataTable({
+    table_data <- regional_summary %>%
+      select(Region_ID, Land_Use_Category, Mean_Health_Score, Mean_NDVI, Mean_Biodiversity, Mean_Degradation) %>%
+      arrange(desc(Mean_Health_Score))
+    
+    DT::datatable(
+      table_data,
+      options = list(
+        pageLength = 15,
+        searching = TRUE,
+        dom = 'tip'
+      ),
+      colnames = c("Region", "Land Use", "Health Score", "NDVI", "Biodiversity", "Degradation")
+    ) %>%
+      DT::formatStyle(
+        'Mean_Health_Score',
+        backgroundColor = DT::styleInterval(
+          c(0.49, 0.52),
+          c('#C97A63', '#D9CBB4', '#8FAF9F')  # terracotta, sand, sage
+        )
+      ) %>%
+      DT::formatRound(
+        columns = c('Mean_Health_Score', 'Mean_NDVI', 'Mean_Biodiversity', 'Mean_Degradation'),
+        digits = 3
+      )
+  })
+  
+  # TAB 2 FILTERING
   output$filtered_table <- renderTable({
     filtered_df <- regional_summary %>%
       filter(
@@ -105,10 +170,10 @@ server <- function(input, output, session) {
       ))
     }
     
-    return(filtered_df)
+    filtered_df
   })
   
-  # TAB 3: Diagnostic output
+  # TAB 3 DIAGNOSTICS
   output$diagnostic_output <- renderText({
     selected_region <- input$region_select
     region_data <- regional_summary %>% filter(Region_ID == selected_region)
@@ -126,7 +191,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # TAB 4: Time series plot placeholder
+  # TAB 4 PLACEHOLDER
   output$timeseries_plot <- renderPlot({
     plot(NULL, xlim=c(0,1), ylim=c(0,1), main = "Time series comparison (coming soon)")
   })
