@@ -6,6 +6,9 @@ library(DT)
 regional_summary <- readRDS("data/regional_summary.rds")
 daily_telemetry  <- readRDS("data/daily_telemetry.rds")
 
+# Total region/land-use combinations for dynamic denominator
+total_combinations <- nrow(regional_summary)
+
 # ==============================================================================
 # UI
 # ==============================================================================
@@ -111,50 +114,82 @@ ui <- fluidPage(
     
     tabPanel(
       "Threshold Explorer",
-      
-      h3("Custom Filtering by Environmental Thresholds"),
+      br(),
       
       sidebarLayout(
         
         sidebarPanel(
+          width = 4,
+          
+          h4("Filter Environmental Criteria 🎯"),
           
           p(
-            "Set thresholds to identify regions meeting your criteria:"
+            "Adjust slider thresholds to isolate target monitoring regions:"
           ),
           
+          hr(
+            style = "margin-top: 10px; margin-bottom: 15px;"
+          ),
+          
+          # NDVI threshold
           sliderInput(
             "ndvi_threshold",
-            "NDVI Index (Min):",
+            "Minimum NDVI Index:",
             min = 0,
             max = 1,
             value = 0.40,
             step = 0.05
           ),
           
+          # Biodiversity threshold
           sliderInput(
             "biodiversity_threshold",
-            "Biodiversity (Min):",
+            "Minimum Biodiversity Score:",
             min = 0,
             max = 1,
             value = 0.40,
             step = 0.05
           ),
           
+          # Degradation threshold
           sliderInput(
             "degradation_threshold",
-            "Land Degradation (Max):",
+            "Maximum Land Degradation:",
             min = 0,
             max = 1,
             value = 0.70,
             step = 0.05
+          ),
+          
+          hr(),
+          
+          p(
+            style = "font-size: 12px; color: #666; font-style: italic;",
+            "💡 Tip: Lower degradation thresholds to focus on high-integrity conservation areas, or relax criteria to identify candidate restoration zones."
           )
         ),
         
         mainPanel(
+          width = 8,
           
-          p("Regions matching your thresholds:"),
+          # Real-time counter card
+          div(
+            style = "background-color: #f8f9fa; border-left: 5px solid #2C526A; 
+                     padding: 12px 18px; border-radius: 4px; 
+                     box-shadow: 0 1px 3px rgba(0,0,0,0.06); 
+                     margin-bottom: 20px;",
+            
+            h4(
+              uiOutput("filtered_counter"),
+              style = "margin: 0; font-weight: bold; color: #2C526A;"
+            )
+          ),
           
-          tableOutput("filtered_table")
+          h4("Matching Monitoring Regions"),
+          
+          p("Filtered results ordered by Health Score:"),
+          
+          DT::dataTableOutput("filtered_table_dt")
         )
       )
     ),
@@ -349,16 +384,15 @@ server <- function(input, output, session) {
   # TAB 2: THRESHOLD FILTERING
   # ============================================================================
   
-  output$filtered_table <- renderTable({
+  # Reactive dataset filtered by slider values
+  filtered_data <- reactive({
     
-    filtered_df <- regional_summary %>%
-      
+    regional_summary %>%
       filter(
         Mean_NDVI >= input$ndvi_threshold,
         Mean_Biodiversity >= input$biodiversity_threshold,
         Mean_Degradation <= input$degradation_threshold
       ) %>%
-      
       select(
         Region_ID,
         Land_Use_Category,
@@ -367,22 +401,92 @@ server <- function(input, output, session) {
         Mean_Biodiversity,
         Mean_Degradation
       ) %>%
-      
       arrange(desc(Mean_Health_Score))
+  })
+  
+  
+  # Live Result Counter
+  output$filtered_counter <- renderUI({
     
+    count <- nrow(filtered_data())
     
-    # Empty-state message
-    if (nrow(filtered_df) == 0) {
+    if (count == 0) {
       
       return(
-        data.frame(
-          Status = "⚠️ No regions match your current filter criteria. Try lowering the thresholds on the left!"
+        span(
+          "⚠️ 0 regions match your criteria",
+          style = "color: #C97A63;"
+        )
+      )
+      
+    } else {
+      
+      return(
+        paste0(
+          "🔍 ",
+          count,
+          " of ",
+          total_combinations,
+          " region/land-use zones match your criteria"
         )
       )
     }
+  })
+  
+  
+  # Filtered Interactive Table
+  output$filtered_table_dt <- DT::renderDataTable({
     
+    df <- filtered_data()
     
-    filtered_df
+    DT::datatable(
+      
+      df,
+      
+      options = list(
+        pageLength = 10,
+        searching = FALSE,
+        dom = "tip"
+      ),
+      
+      colnames = c(
+        "Region",
+        "Land Use",
+        "Health Score",
+        "NDVI",
+        "Biodiversity",
+        "Degradation"
+      )
+      
+    ) %>%
+      
+      DT::formatStyle(
+        
+        "Mean_Health_Score",
+        
+        backgroundColor = DT::styleInterval(
+          
+          c(0.49, 0.52),
+          
+          c(
+            "#C97A63",  # Terracotta = Critical
+            "#D9CBB4",  # Sand = Moderate
+            "#8FAF9F"   # Sage = Healthy
+          )
+        )
+      ) %>%
+      
+      DT::formatRound(
+        
+        columns = c(
+          "Mean_Health_Score",
+          "Mean_NDVI",
+          "Mean_Biodiversity",
+          "Mean_Degradation"
+        ),
+        
+        digits = 3
+      )
   })
   
   
