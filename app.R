@@ -6,7 +6,7 @@ library(DT)
 regional_summary <- readRDS("data/regional_summary.rds")
 daily_telemetry  <- readRDS("data/daily_telemetry.rds")
 
-# Total region/land-use combinations for dynamic denominator
+# Total rows for dynamic denominator
 total_combinations <- nrow(regional_summary)
 
 # ==============================================================================
@@ -86,10 +86,7 @@ ui <- fluidPage(
       br(),
       
       h4("Regional Health Overview"),
-      
-      p(
-        "Relative performance tiers based on dataset health distribution."
-      ),
+      p("Relative performance tiers based on dataset health distribution."),
       
       # Legend
       p(
@@ -122,26 +119,18 @@ ui <- fluidPage(
           width = 4,
           
           h4("Filter Environmental Criteria 🎯"),
+          p("Adjust slider thresholds to isolate target monitoring regions:"),
+          hr(style = "margin-top: 10px; margin-bottom: 15px;"),
           
-          p(
-            "Adjust slider thresholds to isolate target monitoring regions:"
-          ),
-          
-          hr(
-            style = "margin-top: 10px; margin-bottom: 15px;"
-          ),
-          
-          # NDVI threshold
           sliderInput(
             "ndvi_threshold",
-            "Minimum NDVI Index:",
+            "Minimum NDVI Index (Vegetation Density):",
             min = 0,
             max = 1,
             value = 0.40,
             step = 0.05
           ),
           
-          # Biodiversity threshold
           sliderInput(
             "biodiversity_threshold",
             "Minimum Biodiversity Score:",
@@ -151,7 +140,6 @@ ui <- fluidPage(
             step = 0.05
           ),
           
-          # Degradation threshold
           sliderInput(
             "degradation_threshold",
             "Maximum Land Degradation:",
@@ -172,21 +160,12 @@ ui <- fluidPage(
         mainPanel(
           width = 8,
           
-          # Real-time counter card
           div(
-            style = "background-color: #f8f9fa; border-left: 5px solid #2C526A; 
-                     padding: 12px 18px; border-radius: 4px; 
-                     box-shadow: 0 1px 3px rgba(0,0,0,0.06); 
-                     margin-bottom: 20px;",
-            
-            h4(
-              uiOutput("filtered_counter"),
-              style = "margin: 0; font-weight: bold; color: #2C526A;"
-            )
+            style = "background-color: #f8f9fa; border-left: 5px solid #2C526A; padding: 12px 18px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px;",
+            h4(uiOutput("filtered_counter"), style = "margin: 0; font-weight: bold; color: #2C526A;")
           ),
           
           h4("Matching Monitoring Regions"),
-          
           p("Filtered results ordered by Health Score:"),
           
           DT::dataTableOutput("filtered_table_dt")
@@ -196,59 +175,90 @@ ui <- fluidPage(
     
     
     # ==========================================================================
-    # TAB 3: Diagnostic Panel
-    # ==========================================================================
-    
-    tabPanel(
-      "Diagnostic Panel",
-      
-      h3("Regional Health Details"),
-      
-      p("Select a region to view detailed diagnostics."),
-      
-      selectInput(
-        "region_select",
-        "Choose Region:",
-        choices = unique(regional_summary$Region_ID)
-      ),
-      
-      verbatimTextOutput("diagnostic_output")
-    ),
-    
-    
-    # ==========================================================================
-    # TAB 4: Temporal Comparison
+    # TAB 3: Time Series Comparison (Temporal Investigation)
     # ==========================================================================
     
     tabPanel(
       "Time Series Comparison",
+      br(),
       
-      h3("Track Trends Over Time"),
-      
-      p("Compare two regions side-by-side (coming soon)."),
-      
-      fluidRow(
-        
-        column(
-          6,
+      sidebarLayout(
+        sidebarPanel(
+          width = 3,
+          h4("Comparison Controls 📈"),
+          p("Select two regions to evaluate leading-lagging indicator trajectories over time."),
+          hr(),
+          
           selectInput(
             "region1",
-            "Region 1:",
-            choices = unique(daily_telemetry$Region_ID)
+            "Select Primary Region:",
+            choices = unique(daily_telemetry$Region_ID),
+            selected = "R13"
+          ),
+          
+          selectInput(
+            "region2",
+            "Select Comparison Region:",
+            choices = unique(daily_telemetry$Region_ID),
+            selected = "R01"
+          ),
+          
+          hr(),
+          
+          selectInput(
+            "time_metric",
+            "Select Environmental Metric:",
+            choices = c(
+              "NDVI Index (Vegetation)" = "NDVI_Index",
+              "Groundwater Level"       = "Groundwater_Level",
+              "Soil Moisture"           = "Soil_Moisture",
+              "Land Degradation"        = "Land_Degradation_Index"
+            ),
+            selected = "NDVI_Index"
+          ),
+          p(
+            style = "font-size: 11px; color: #666; margin-top: -5px;",
+            "Select a metric to compare daily telemetry patterns across regions."
+          ),
+          
+          hr(),
+          
+          radioButtons(
+            "trend_display",
+            "Trend Display Mode:",
+            choices = c(
+              "Smoother Trend (LOESS)" = "smooth",
+              "Raw Daily Telemetry"   = "raw"
+            ),
+            selected = "smooth"
+          ),
+          
+          hr(),
+          div(
+            style = "background-color: #f1f3f5; padding: 10px; border-radius: 4px;",
+            p(
+              style = "font-size: 12px; color: #333; margin: 0; font-style: italic;",
+              "💡 Research Question: Does a drop in groundwater precede drops in NDVI vegetation across different land-use zones?"
+            )
           )
         ),
         
-        column(
-          6,
-          selectInput(
-            "region2",
-            "Region 2:",
-            choices = unique(daily_telemetry$Region_ID)
+        mainPanel(
+          width = 9,
+          h4("Temporal Trajectory Analysis"),
+          p("Comparing daily telemetry patterns across selected regions over time:"),
+          br(),
+          
+          plotOutput("timeseries_plot", height = "420px"),
+          
+          br(),
+          div(
+            style = "background-color: #f8f9fa; padding: 12px 15px; border-radius: 4px; border: 1px solid #e9ecef;",
+            h5("📊 Regional Land-Use Context & Insights", style = "margin-top: 0; font-weight: bold; color: #444;"),
+            uiOutput("timeseries_summary_text")
           )
         )
-      ),
-      
-      plotOutput("timeseries_plot")
+      )
     )
   )
 )
@@ -265,46 +275,24 @@ server <- function(input, output, session) {
   # KPI CARDS
   # ============================================================================
   
-  # Highest-scoring Region + Land Use combination
   output$top_region_kpi <- renderUI({
-    
     top_row <- regional_summary %>%
       arrange(desc(Mean_Health_Score)) %>%
       slice(1)
     
-    paste0(
-      top_row$Region_ID,
-      " (",
-      top_row$Land_Use_Category,
-      ")"
-    )
+    paste0(top_row$Region_ID, " (", top_row$Land_Use_Category, ")")
   })
   
-  
-  # Lowest-scoring Region + Land Use combination
   output$lowest_region_kpi <- renderUI({
-    
     bottom_row <- regional_summary %>%
       arrange(Mean_Health_Score) %>%
       slice(1)
     
-    paste0(
-      bottom_row$Region_ID,
-      " (",
-      bottom_row$Land_Use_Category,
-      ")"
-    )
+    paste0(bottom_row$Region_ID, " (", bottom_row$Land_Use_Category, ")")
   })
   
-  
-  # Average Health Score across the dataset
   output$avg_health_kpi <- renderUI({
-    
-    avg_score <- mean(
-      regional_summary$Mean_Health_Score,
-      na.rm = TRUE
-    )
-    
+    avg_score <- mean(regional_summary$Mean_Health_Score, na.rm = TRUE)
     round(avg_score, 3)
   })
   
@@ -314,67 +302,24 @@ server <- function(input, output, session) {
   # ============================================================================
   
   output$regional_table <- DT::renderDataTable({
-    
     table_data <- regional_summary %>%
-      select(
-        Region_ID,
-        Land_Use_Category,
-        Mean_Health_Score,
-        Mean_NDVI,
-        Mean_Biodiversity,
-        Mean_Degradation
-      ) %>%
+      select(Region_ID, Land_Use_Category, Mean_Health_Score, Mean_NDVI, Mean_Biodiversity, Mean_Degradation) %>%
       arrange(desc(Mean_Health_Score))
     
-    
     DT::datatable(
-      
       table_data,
-      
-      options = list(
-        pageLength = 15,
-        searching = TRUE,
-        dom = "tip"
-      ),
-      
-      colnames = c(
-        "Region",
-        "Land Use",
-        "Health Score",
-        "NDVI",
-        "Biodiversity",
-        "Degradation"
-      )
-      
+      options = list(pageLength = 15, searching = TRUE, dom = "tip"),
+      colnames = c("Region", "Land Use", "Health Score", "NDVI", "Biodiversity", "Degradation")
     ) %>%
-      
-      # Health Score conditional formatting
       DT::formatStyle(
-        
         "Mean_Health_Score",
-        
         backgroundColor = DT::styleInterval(
-          
           c(0.49, 0.52),
-          
-          c(
-            "#C97A63",  # Terracotta = Critical
-            "#D9CBB4",  # Sand = Moderate
-            "#8FAF9F"   # Sage = Healthy
-          )
+          c("#C97A63", "#D9CBB4", "#8FAF9F")
         )
       ) %>%
-      
-      # Round numerical values
       DT::formatRound(
-        
-        columns = c(
-          "Mean_Health_Score",
-          "Mean_NDVI",
-          "Mean_Biodiversity",
-          "Mean_Degradation"
-        ),
-        
+        columns = c("Mean_Health_Score", "Mean_NDVI", "Mean_Biodiversity", "Mean_Degradation"),
         digits = 3
       )
   })
@@ -384,169 +329,141 @@ server <- function(input, output, session) {
   # TAB 2: THRESHOLD FILTERING
   # ============================================================================
   
-  # Reactive dataset filtered by slider values
   filtered_data <- reactive({
-    
     regional_summary %>%
       filter(
         Mean_NDVI >= input$ndvi_threshold,
         Mean_Biodiversity >= input$biodiversity_threshold,
         Mean_Degradation <= input$degradation_threshold
       ) %>%
-      select(
-        Region_ID,
-        Land_Use_Category,
-        Mean_Health_Score,
-        Mean_NDVI,
-        Mean_Biodiversity,
-        Mean_Degradation
-      ) %>%
+      select(Region_ID, Land_Use_Category, Mean_Health_Score, Mean_NDVI, Mean_Biodiversity, Mean_Degradation) %>%
       arrange(desc(Mean_Health_Score))
   })
   
-  
-  # Live Result Counter
   output$filtered_counter <- renderUI({
-    
     count <- nrow(filtered_data())
-    
     if (count == 0) {
-      
-      return(
-        span(
-          "⚠️ 0 regions match your criteria",
-          style = "color: #C97A63;"
-        )
-      )
-      
+      return(span("⚠️ 0 regions match your criteria", style = "color: #C97A63;"))
     } else {
-      
-      return(
-        paste0(
-          "🔍 ",
-          count,
-          " of ",
-          total_combinations,
-          " region/land-use zones match your criteria"
-        )
-      )
+      return(paste0("🔍 ", count, " of ", total_combinations, " region/land-use zones match your criteria"))
     }
   })
   
-  
-  # Filtered Interactive Table
   output$filtered_table_dt <- DT::renderDataTable({
-    
     df <- filtered_data()
     
     DT::datatable(
-      
       df,
-      
-      options = list(
-        pageLength = 10,
-        searching = FALSE,
-        dom = "tip"
-      ),
-      
-      colnames = c(
-        "Region",
-        "Land Use",
-        "Health Score",
-        "NDVI",
-        "Biodiversity",
-        "Degradation"
-      )
-      
+      options = list(pageLength = 10, searching = FALSE, dom = "tip"),
+      colnames = c("Region", "Land Use", "Health Score", "NDVI", "Biodiversity", "Degradation")
     ) %>%
-      
       DT::formatStyle(
-        
         "Mean_Health_Score",
-        
         backgroundColor = DT::styleInterval(
-          
           c(0.49, 0.52),
-          
-          c(
-            "#C97A63",  # Terracotta = Critical
-            "#D9CBB4",  # Sand = Moderate
-            "#8FAF9F"   # Sage = Healthy
-          )
+          c("#C97A63", "#D9CBB4", "#8FAF9F")
         )
       ) %>%
-      
       DT::formatRound(
-        
-        columns = c(
-          "Mean_Health_Score",
-          "Mean_NDVI",
-          "Mean_Biodiversity",
-          "Mean_Degradation"
-        ),
-        
+        columns = c("Mean_Health_Score", "Mean_NDVI", "Mean_Biodiversity", "Mean_Degradation"),
         digits = 3
       )
   })
   
   
   # ============================================================================
-  # TAB 3: DIAGNOSTIC PANEL
+  # TAB 3: TIME SERIES COMPARISON (Server)
   # ============================================================================
   
-  output$diagnostic_output <- renderText({
+  ts_data <- reactive({
+    req(input$region1, input$region2, input$time_metric)
     
-    selected_region <- input$region_select
+    df <- daily_telemetry %>%
+      filter(Region_ID %in% c(input$region1, input$region2))
     
-    region_data <- regional_summary %>%
-      filter(Region_ID == selected_region)
+    validate(
+      need(nrow(df) > 0, "No telemetry data found for the selected region combination.")
+    )
     
-    
-    if (nrow(region_data) > 0) {
-      
-      paste0(
-        "Region: ",
-        selected_region,
-        "\n",
-        
-        "Land Use: ",
-        region_data$Land_Use_Category[1],
-        "\n",
-        
-        "Mean Health Score: ",
-        round(region_data$Mean_Health_Score[1], 3),
-        "\n",
-        
-        "NDVI Index: ",
-        round(region_data$Mean_NDVI[1], 3),
-        "\n",
-        
-        "Biodiversity: ",
-        round(region_data$Mean_Biodiversity[1], 3)
-      )
-      
-    } else {
-      
-      "No data available for this region."
-    }
+    df %>%
+      mutate(plot_date = as.Date(Date)) %>%
+      filter(!is.na(plot_date), !is.na(.data[[input$time_metric]]))
   })
-  
-  
-  # ============================================================================
-  # TAB 4: TIME SERIES PLACEHOLDER
-  # ============================================================================
   
   output$timeseries_plot <- renderPlot({
+    df <- ts_data()
+    metric <- input$time_metric
     
-    plot(
-      NULL,
-      xlim = c(0, 1),
-      ylim = c(0, 1),
-      main = "Time series comparison (coming soon)"
+    metric_title <- switch(metric,
+                           "NDVI_Index"             = "NDVI Index (Vegetation Vitality)",
+                           "Groundwater_Level"      = "Groundwater Level",
+                           "Soil_Moisture"          = "Soil Moisture Content",
+                           "Land_Degradation_Index" = "Land Degradation Index",
+                           metric
     )
+    
+    color_palette <- c("#2C526A", "#C97A63")
+    
+    p <- ggplot(df, aes(x = plot_date, y = .data[[metric]], color = Region_ID, group = Region_ID))
+    
+    if (input$trend_display == "smooth") {
+      p <- p +
+        geom_line(alpha = 0.25, linewidth = 0.5) +
+        geom_smooth(method = "loess", span = 0.25, se = FALSE, linewidth = 1.4)
+    } else {
+      p <- p + geom_line(linewidth = 1.0, alpha = 0.85)
+    }
+    
+    p +
+      scale_color_manual(values = color_palette) +
+      theme_minimal(base_size = 14) +
+      labs(
+        title = paste("Daily Trajectory Comparison:", metric_title),
+        subtitle = ifelse(
+          input$trend_display == "smooth",
+          paste("LOESS Trend comparison between", input$region1, "and", input$region2),
+          paste("Raw daily data comparison between", input$region1, "and", input$region2)
+        ),
+        x = "Date",
+        y = metric_title,
+        color = "Region ID"
+      ) +
+      theme(
+        plot.title = element_text(face = "bold", size = 16, color = "#222"),
+        plot.subtitle = element_text(color = "#666", size = 12),
+        legend.position = "top",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(color = "#f0f0f0")
+      )
   })
+  
+  output$timeseries_summary_text <- renderUI({
+    req(input$region1, input$region2)
+    
+    get_uses <- function(reg_id) {
+      uses <- regional_summary %>% 
+        filter(Region_ID == reg_id) %>% 
+        pull(Land_Use_Category) %>% 
+        unique()
+      
+      if (length(uses) == 0) return("Unclassified")
+      if (length(uses) > 3) {
+        return(paste0(paste(uses[1:3], collapse = ", "), " (+", length(uses) - 3, " more land-use sub-zones)"))
+      }
+      return(paste(uses, collapse = ", "))
+    }
+    
+    r1_use <- get_uses(input$region1)
+    r2_use <- get_uses(input$region2)
+    
+    HTML(paste0(
+      "<b>Primary Region (", input$region1, "):</b> Land-Use Composition — <i>", r1_use, "</i><br/>",
+      "<b>Comparison Region (", input$region2, "):</b> Land-Use Composition — <i>", r2_use, "</i><br/>",
+      "<span style='color: #555; font-size: 13px;'>Toggle 'Smoother Trend' to evaluate multi-month seasonal convergence, lag indicators, and ecological stress trajectories clearly.</span>"
+    ))
+  })
+  
 }
-
 
 # ==============================================================================
 # RUN APP
