@@ -7,15 +7,15 @@ Interactive Shiny app for ecological restoration prioritization.
 ## 📸 Preview
 
 ### 1. Regional Health Overview
-![Regional Health Overview](www/Tab 1-Regional Dashboard.png)
+![Regional Health Overview](<www/Tab 1-Regional Dashboard.png>)
 *Interactive summary metrics and dynamic ranking table for monitored regions.*
 
 ### 2. Environmental Threshold Explorer
-![Threshold Explorer](www/Tab 2-Threshold Explorer.png)
+![Threshold Explorer](<www/Tab 2-Threshold Explorer.png>)
 *Reactive multi-slider filtering isolating priority restoration zones.*
 
 ### 3. Temporal Trajectory Analysis
-![Temporal Trajectories](www/Tab 3-Temporal Trajectory Analysis.png)
+![Temporal Trajectories](<www/Tab 3-Temporal Trajectory Analysis.png>)
 *Side-by-side regional trajectory comparison with LOESS trend smoothing.*
 
 ---
